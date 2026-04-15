@@ -183,13 +183,6 @@ def check_arg_spec(
             args[arg_i] = parser.parse_script(arg)
         elif _positional_has_type("expression", arg_spec, map_to_spec):
             args[arg_i] = parser.parse_expression(arg)
-        elif len(map_to_spec) == 1:
-            positional_spec = arg_spec["positionals"][map_to_spec[0]]
-            _validate_value(
-                arg,
-                positional_spec["value"],
-                f"{command} {positional_spec['name']}",
-            )
 
     return args
 
@@ -271,14 +264,10 @@ def map_switches(
             if switch_spec["value"]:
                 arg_i += 1
                 if arg_i > len(args):
-                    expected = _switch_value_description(switch_spec)
                     raise CommandArgError(
-                        f"invalid arguments for {command_name}: expected"
-                        f" {expected} after {contents}"
+                        f"invalid arguments for {command_name}: expected value after"
+                        f" {contents}"
                     )
-                _validate_value(
-                    args[arg_i - 1], switch_spec["value"], f"{command_name} {contents}"
-                )
             mapped.add(contents)
             continue
 
@@ -302,44 +291,6 @@ def map_switches(
         raise CommandArgError(f"unrecognized argument for {command_name}: {contents}")
 
     return mapped, positional_args
-
-
-def _switch_value_description(switch_spec: dict) -> str:
-    metavar = switch_spec.get("metavar")
-    if metavar is not None:
-        return metavar
-
-    value_spec = switch_spec.get("value")
-    if value_spec is None:
-        return "value"
-
-    value_type = value_spec.get("type")
-    if value_type == "int":
-        return "int value"
-
-    return "value"
-
-
-def _validate_value(arg: Node, value_spec: dict | None, context: str) -> None:
-    if value_spec is None:
-        return
-
-    contents = arg.contents
-    if contents is None:
-        return
-
-    value_type = value_spec.get("type")
-    if value_type in {"any", "variadic", "script", "expression"}:
-        return
-
-    if value_type == "int":
-        try:
-            int(contents, 0)
-            return
-        except ValueError as error:
-            raise CommandArgError(
-                f"invalid value for {context}: got {contents}, expected {value_type}"
-            ) from error
 
 
 def map_positionals(

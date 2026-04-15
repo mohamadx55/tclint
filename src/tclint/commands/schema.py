@@ -2,10 +2,12 @@ from collections.abc import Callable
 
 from voluptuous import Optional, Or, Schema, Self
 
-_switch_value = Or({"type": "any"}, {"type": "int"}, None)
+SWITCH_VALUE_TYPES = ("any",)
+POSITIONAL_VALUE_TYPES = ("any", "variadic", "script", "expression")
+
+_switch_value = Or({"type": "any"}, None)
 _positional_value = Or(
     {"type": "any"},
-    {"type": "int"},
     {"type": "variadic"},
     {"type": "script"},
     {"type": "expression"},
@@ -43,3 +45,45 @@ schema = Schema(
     {"name": str, "commands": commands_schema},
     required=True,
 )
+
+
+def format_validation_error(spec: object, error: Exception) -> str:
+    error_path = list(getattr(error, "path", []))
+    if error_path and error_path[-1] == "type":
+        invalid_value = _get_spec_value(spec, error_path)
+        if "switches" in error_path:
+            expected = ", ".join(SWITCH_VALUE_TYPES)
+        elif "positionals" in error_path:
+            expected = ", ".join(POSITIONAL_VALUE_TYPES)
+        else:
+            expected = None
+
+        if expected is not None:
+            return (
+                f"invalid value {invalid_value!r} for {_format_error_path(error_path)};"
+                f" expected one of {expected}"
+            )
+
+    return str(error)
+
+
+def _get_spec_value(spec: object, path: list[object]) -> object:
+    value = spec
+    for part in path:
+        if isinstance(value, list) and isinstance(part, int):
+            value = value[part]
+            continue
+
+        if not isinstance(value, dict):
+            return None
+
+        value = value.get(part)
+
+    return value
+
+
+def _format_error_path(path: list[object]) -> str:
+    formatted = "data"
+    for part in path:
+        formatted += f"[{part!r}]"
+    return formatted

@@ -1,7 +1,7 @@
 import pytest
 from voluptuous import Invalid
 
-from tclint.commands.schema import schema
+from tclint.commands.schema import format_validation_error, schema
 
 
 def test_valid_command_spec():
@@ -24,28 +24,6 @@ def test_valid_command_spec():
                         "required": True,
                         "value": None,
                         "repeated": True,
-                    },
-                },
-            }
-        },
-    }
-
-    schema(command_spec)
-
-
-def test_valid_int_type():
-    command_spec = {
-        "name": "test_plugin",
-        "commands": {
-            "command1": {
-                "positionals": [
-                    {"name": "arg1", "required": True, "value": {"type": "int"}},
-                ],
-                "switches": {
-                    "-switch1": {
-                        "required": False,
-                        "value": {"type": "int"},
-                        "repeated": False,
                     },
                 },
             }
@@ -94,15 +72,15 @@ def test_invalid_datatype():
     print("test_invalid_minmax_values:", excinfo.value)
 
 
-def test_invalid_scalar_type():
-    command_spec = {
+def test_invalid_value_type_message():
+    invalid_command_spec = {
         "name": "test_plugin",
         "commands": {
             "command1": {
                 "switches": {
                     "-switch1": {
                         "required": False,
-                        "value": {"type": "string"},
+                        "value": {"type": "int"},
                         "repeated": False,
                     },
                 },
@@ -111,8 +89,14 @@ def test_invalid_scalar_type():
     }
 
     with pytest.raises(Invalid) as excinfo:
-        schema(command_spec)
-    print("test_invalid_scalar_type:", excinfo.value)
+        schema(invalid_command_spec)
+
+    assert (
+        format_validation_error(invalid_command_spec, excinfo.value)
+        == "invalid value 'int' for"
+        " data['commands']['command1']['switches']['-switch1']['value']['type'];"
+        " expected one of any"
+    )
 
 
 def test_extra_property():
